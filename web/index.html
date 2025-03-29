@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>个人导航</title>
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+            line-height: 1.6;
+            background-color: #f5f5f5;
+            color: #333;
+        }
+
+        .container {
+            display: flex;
+            min-height: 100vh;
+        }
+
+        .sidebar {
+            width: 280px;
+            background-color: #fff;
+            padding: 20px;
+            box-shadow: 2px 0 5px rgba(0,0,0,0.1);
+            overflow-y: auto;
+            position: fixed;
+            height: 100vh;
+        }
+
+        .main-content {
+            flex: 1;
+            margin-left: 280px;
+            padding: 30px;
+        }
+
+        .search-bar {
+            margin-bottom: 30px;
+            position: relative;
+        }
+
+        .search-bar input {
+            width: 100%;
+            padding: 12px 20px;
+            padding-left: 45px;
+            border: 2px solid #eee;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: all 0.3s ease;
+        }
+
+        .search-bar input:focus {
+            outline: none;
+            border-color: #1a73e8;
+            box-shadow: 0 0 0 3px rgba(26,115,232,0.1);
+        }
+
+        .search-bar .material-icons {
+            position: absolute;
+            left: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #666;
+        }
+
+        .category {
+            margin-bottom: 20px;
+        }
+
+        .category-header {
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+            padding: 8px 12px;
+            border-radius: 6px;
+            transition: all 0.2s ease;
+        }
+
+        .category-header:hover {
+            background-color: #f0f0f0;
+        }
+
+        .category-header .material-icons {
+            margin-right: 12px;
+            color: #1a73e8;
+        }
+
+        .subcategory {
+            margin-left: 25px;
+            margin-top: 8px;
+        }
+
+        .bookmark-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 25px;
+            padding: 20px 0;
+        }
+
+        .bookmark-card {
+            display: flex;
+            flex-direction: column;
+            background: white;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .bookmark-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+
+        .bookmark-image {
+            width: 100%;
+            height: 160px;
+            background-size: contain;
+            background-position: center;
+            background-repeat: no-repeat;
+            background-color: #f8f9fa;
+            position: relative;
+        }
+
+        .bookmark-image::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 1px;
+            background: linear-gradient(to right, transparent, #eee, transparent);
+        }
+
+        .bookmark-content {
+            padding: 20px;
+        }
+
+        .bookmark-title {
+            font-size: 16px;
+            font-weight: 500;
+            margin-bottom: 8px;
+            color: #333;
+            line-height: 1.4;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        .bookmark-url {
+            font-size: 13px;
+            color: #666;
+            text-overflow: ellipsis;
+            overflow: hidden;
+            white-space: nowrap;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+        }
+
+        .bookmark-url:hover {
+            color: #1a73e8;
+        }
+
+        .bookmark-url .material-icons {
+            font-size: 16px;
+            margin-right: 4px;
+        }
+
+        .active {
+            background-color: #e8f0fe;
+            color: #1a73e8;
+        }
+
+        .loading {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 200px;
+        }
+
+        .loading .material-icons {
+            font-size: 40px;
+            color: #1a73e8;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                flex-direction: column;
+            }
+
+            .sidebar {
+                width: 100%;
+                height: auto;
+                position: relative;
+            }
+
+            .main-content {
+                margin-left: 0;
+            }
+
+            .bookmark-cards {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="sidebar" id="sidebar">
+            <div class="search-bar">
+                <span class="material-icons">search</span>
+                <input type="text" id="searchInput" placeholder="搜索书签...">
+            </div>
+            <div id="categories"></div>
+        </div>
+        <div class="main-content">
+            <div class="bookmark-cards" id="bookmarkCards"></div>
+        </div>
+    </div>
+
+    <script>
+        // 确保bookmarks.js加载完成后再执行
+        function loadScript(url) {
+            return new Promise((resolve, reject) => {
+                const script = document.createElement('script');
+                script.src = url;
+                script.onload = resolve;
+                script.onerror = reject;
+                document.head.appendChild(script);
+            });
+        }
+
+        // 获取网站favicon
+        function getFaviconUrl(url) {
+            try {
+                const domain = new URL(url).hostname;
+                return `https://www.google.com/s2/favicons?domain=${domain}&sz=128`;
+            } catch (e) {
+                return 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128"><rect width="128" height="128" fill="%23f5f5f5"/><text x="64" y="64" font-family="Arial" font-size="48" fill="%23999" text-anchor="middle" dominant-baseline="middle">🌐</text></svg>';
+            }
+        }
+
+        // 等待Material Icons字体加载完成
+        document.fonts.ready.then(() => {
+            loadScript('bookmarks.js')
+                .then(() => {
+                    initializeApp();
+                })
+                .catch(error => {
+                    console.error('Error loading bookmarks.js:', error);
+                });
+        });
+
+        function initializeApp() {
+            // 当前选中的分类
+            let currentCategory = null;
+            let currentSubcategory = null;
+
+            // 渲染分类
+            function renderCategories() {
+                const categoriesDiv = document.getElementById('categories');
+                categoriesDiv.innerHTML = '';
+
+                for (const [categoryName, category] of Object.entries(bookmarks)) {
+                    const categoryDiv = document.createElement('div');
+                    categoryDiv.className = 'category';
+
+                    const categoryHeader = document.createElement('div');
+                    categoryHeader.className = 'category-header';
+                    categoryHeader.innerHTML = `
+                        <span class="material-icons">${category.icon}</span>
+                        <span>${categoryName}</span>
+                    `;
+
+                    categoryHeader.addEventListener('click', () => {
+                        currentCategory = categoryName;
+                        currentSubcategory = null;
+                        updateActiveState();
+                        renderBookmarks();
+                    });
+
+                    categoryDiv.appendChild(categoryHeader);
+
+                    // 渲染子分类
+                    if (category.items) {
+                        for (const [subName, subCategory] of Object.entries(category.items)) {
+                            const subCategoryDiv = document.createElement('div');
+                            subCategoryDiv.className = 'subcategory';
+
+                            const subHeader = document.createElement('div');
+                            subHeader.className = 'category-header';
+                            subHeader.innerHTML = `
+                                <span class="material-icons">${subCategory.icon}</span>
+                                <span>${subName}</span>
+                            `;
+
+                            subHeader.addEventListener('click', () => {
+                                currentCategory = categoryName;
+                                currentSubcategory = subName;
+                                updateActiveState();
+                                renderBookmarks();
+                            });
+
+                            subCategoryDiv.appendChild(subHeader);
+                            categoryDiv.appendChild(subCategoryDiv);
+                        }
+                    }
+
+                    categoriesDiv.appendChild(categoryDiv);
+                }
+            }
+
+            // 更新选中状态
+            function updateActiveState() {
+                document.querySelectorAll('.category-header').forEach(header => {
+                    header.classList.remove('active');
+                });
+
+                if (currentCategory) {
+                    const headers = document.querySelectorAll('.category-header');
+                    headers.forEach(header => {
+                        const categoryText = header.querySelector('span:not(.material-icons)').textContent;
+                        if (categoryText === currentCategory || 
+                            (currentSubcategory && categoryText === currentSubcategory)) {
+                            header.classList.add('active');
+                        }
+                    });
+                }
+            }
+
+            // 渲染书签卡片
+            function renderBookmarks(searchTerm = '') {
+                const bookmarkCardsDiv = document.getElementById('bookmarkCards');
+                bookmarkCardsDiv.innerHTML = '<div class="loading"><span class="material-icons">refresh</span></div>';
+
+                let bookmarksToShow = [];
+
+                if (currentCategory) {
+                    const category = bookmarks[currentCategory];
+                    if (currentSubcategory) {
+                        const subCategory = category.items[currentSubcategory];
+                        if (Array.isArray(subCategory.items)) {
+                            bookmarksToShow = subCategory.items;
+                        } else if (typeof subCategory.items === 'object') {
+                            for (const [_, nestedSubCategory] of Object.entries(subCategory.items)) {
+                                if (Array.isArray(nestedSubCategory.items)) {
+                                    bookmarksToShow = bookmarksToShow.concat(nestedSubCategory.items);
+                                }
+                            }
+                        }
+                    } else {
+                        for (const [_, subCategory] of Object.entries(category.items)) {
+                            if (Array.isArray(subCategory.items)) {
+                                bookmarksToShow = bookmarksToShow.concat(subCategory.items);
+                            } else if (typeof subCategory.items === 'object') {
+                                for (const [_, nestedSubCategory] of Object.entries(subCategory.items)) {
+                                    if (Array.isArray(nestedSubCategory.items)) {
+                                        bookmarksToShow = bookmarksToShow.concat(nestedSubCategory.items);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    for (const category of Object.values(bookmarks)) {
+                        for (const subCategory of Object.values(category.items)) {
+                            if (Array.isArray(subCategory.items)) {
+                                bookmarksToShow = bookmarksToShow.concat(subCategory.items);
+                            } else if (typeof subCategory.items === 'object') {
+                                for (const nestedSubCategory of Object.values(subCategory.items)) {
+                                    if (Array.isArray(nestedSubCategory.items)) {
+                                        bookmarksToShow = bookmarksToShow.concat(nestedSubCategory.items);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // 搜索过滤
+                if (searchTerm) {
+                    const term = searchTerm.toLowerCase();
+                    bookmarksToShow = bookmarksToShow.filter(bookmark => 
+                        bookmark.title.toLowerCase().includes(term) || 
+                        bookmark.url.toLowerCase().includes(term)
+                    );
+                }
+
+                // 渲染书签卡片
+                bookmarkCardsDiv.innerHTML = '';
+                bookmarksToShow.forEach(bookmark => {
+                    const card = document.createElement('div');
+                    card.className = 'bookmark-card';
+                    
+                    const image = document.createElement('div');
+                    image.className = 'bookmark-image';
+                    image.style.backgroundImage = `url(${getFaviconUrl(bookmark.url)})`;
+                    
+                    const content = document.createElement('div');
+                    content.className = 'bookmark-content';
+                    
+                    const title = document.createElement('div');
+                    title.className = 'bookmark-title';
+                    title.textContent = bookmark.title;
+                    
+                    const url = document.createElement('a');
+                    url.className = 'bookmark-url';
+                    url.href = bookmark.url;
+                    url.target = '_blank';
+                    url.innerHTML = `
+                        <span class="material-icons">link</span>
+                        ${new URL(bookmark.url).hostname}
+                    `;
+                    
+                    content.appendChild(title);
+                    content.appendChild(url);
+                    
+                    card.appendChild(image);
+                    card.appendChild(content);
+                    
+                    // 添加卡片点击事件
+                    card.addEventListener('click', (e) => {
+                        // 如果点击的是链接本身,不触发卡片点击事件
+                        if (e.target.closest('.bookmark-url')) {
+                            return;
+                        }
+                        window.open(bookmark.url, '_blank');
+                    });
+                    
+                    bookmarkCardsDiv.appendChild(card);
+                });
+            }
+
+            // 搜索功能
+            document.getElementById('searchInput').addEventListener('input', (e) => {
+                renderBookmarks(e.target.value);
+            });
+
+            // 自动刷新功能
+            function checkForUpdates() {
+                fetch('bookmarks.js?' + new Date().getTime())
+                    .then(response => response.text())
+                    .then(text => {
+                        // 比较新旧数据
+                        const oldData = JSON.stringify(bookmarksData);
+                        eval(text);  // 更新bookmarksData
+                        const newData = JSON.stringify(bookmarksData);
+                        
+                        if (oldData !== newData) {
+                            console.log('检测到书签更新，正在刷新页面...');
+                            renderBookmarks();
+                        }
+                    })
+                    .catch(error => console.error('更新检查失败:', error));
+            }
+
+            // 每5秒检查一次更新
+            setInterval(checkForUpdates, 5000);
+
+            // 初始化
+            renderCategories();
+            renderBookmarks();
+        }
+    </script>
+</body>
+</html> 
